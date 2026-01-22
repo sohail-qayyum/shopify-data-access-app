@@ -1,0 +1,66 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Store Shopify session data and access tokens
+model Session {
+  id          String   @id @default(uuid())
+  shop        String   @unique
+  accessToken String
+  scope       String
+  isOnline    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  dataScopes  DataScope[]
+  apiKeys     ApiKey[]
+}
+
+// Store which data scopes are enabled for each shop
+model DataScope {
+  id         String   @id @default(uuid())
+  sessionId  String
+  scopeName  String   // 'orders', 'customers', or 'inventory'
+  enabled    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@unique([sessionId, scopeName])
+}
+
+// Store generated API keys for accessing the data endpoints
+model ApiKey {
+  id          String   @id @default(uuid())
+  sessionId   String
+  key         String   @unique
+  name        String
+  isActive    Boolean  @default(true)
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  usageLogs   UsageLog[]
+}
+
+// Log API usage for monitoring and analytics
+model UsageLog {
+  id         String   @id @default(uuid())
+  apiKeyId   String
+  endpoint   String
+  method     String
+  statusCode Int
+  timestamp  DateTime @default(now())
+  
+  apiKey     ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+}
