@@ -22,6 +22,8 @@ router.get('/auth', async (req, res) => {
             shop: shopify.utils.sanitizeShop(shop, true),
             callbackPath: '/auth/callback',
             isOnline: false,
+            rawRequest: req,
+            rawResponse: res,
         });
 
         res.redirect(authRoute);
