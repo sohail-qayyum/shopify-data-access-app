@@ -23,10 +23,11 @@ function Dashboard({ config }) {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
 
-    // Configure axios to include session ID in headers
+    // Configure axios to include session ID and skip ngrok browser warning
     const axiosConfig = {
         headers: {
-            'X-Shopify-Session-Id': config.session
+            'X-Shopify-Session-Id': config.session,
+            'ngrok-skip-browser-warning': 'true'
         }
     };
 
