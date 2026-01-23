@@ -19,35 +19,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware - Configure for Shopify embedding
+// Security middleware
 app.use(helmet({
-    contentSecurityPolicy: false, // Disable CSP for Shopify App Bridge
-    frameguard: false, // Allow iframe embedding from Shopify
+    contentSecurityPolicy: false, // Disable for Shopify App Bridge
 }));
 
-// CORS configuration - Allow Shopify domains
+// CORS configuration
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests from Shopify admin and your app URL
-        const allowedOrigins = [
-            process.env.SHOPIFY_APP_URL,
-            /https:\/\/.*\.myshopify\.com$/,
-            /https:\/\/admin\.shopify\.com$/,
-            /https:\/\/.*\.ngrok-free\.app$/,
-            /https:\/\/.*\.ngrok\.io$/,
-        ];
-
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
-
-        // Check if origin matches any allowed pattern
-        const isAllowed = allowedOrigins.some(pattern => {
-            if (typeof pattern === 'string') return pattern === origin;
-            return pattern.test(origin);
-        });
-
-        callback(null, isAllowed);
-    },
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.SHOPIFY_APP_URL
+        : '*',
     credentials: true
 }));
 
