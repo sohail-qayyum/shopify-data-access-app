@@ -53,10 +53,12 @@ function Dashboard({ config }) {
         } catch (err) {
             console.error('Error fetching data:', err);
 
-            // If we get a 401, the session is invalid. Clear and reload.
+            // If we get a 401, the session is invalid. Re-authenticate.
             if (err.response?.status === 401) {
+                console.error('Session invalid (401). Triggering re-auth...');
                 sessionStorage.removeItem('shopify_config');
-                window.location.reload();
+                // Redirect to auth using the current shop
+                window.location.href = `/auth?shop=${config.shop}`;
                 return;
             }
 

@@ -8,40 +8,42 @@ function App() {
     const [config, setConfig] = useState(null);
 
     useEffect(() => {
-        // Get shop and session from URL parameters
+        // Get params from URL
         const params = new URLSearchParams(window.location.search);
         const shop = params.get('shop');
         const session = params.get('session');
+        const host = params.get('host');
 
-        // Check if we already have a valid session in storage
+        console.log('App initialization - Shop:', shop, 'Session in URL:', !!session, 'Host:', !!host);
+
+        // Check storage fallback
         let storedConfig = null;
         try {
             const stored = sessionStorage.getItem('shopify_config');
             if (stored) {
                 storedConfig = JSON.parse(stored);
+                console.log('Found stored config for shop:', storedConfig.shop);
             }
         } catch (e) {
-            console.warn('Session storage is blocked:', e);
+            console.warn('Storage blocked');
         }
 
         if (shop && session) {
-            // New session from URL (e.g., after OAuth or fresh load)
-            const newConfig = { shop, session };
+            console.log('Using session from URL');
+            const newConfig = { shop, session, host };
             setConfig(newConfig);
-
-            // Try to store for persistence, but don't fail if it blocks
             try {
                 sessionStorage.setItem('shopify_config', JSON.stringify(newConfig));
-            } catch (e) {
-                console.warn('Failed to save session to storage:', e);
-            }
+            } catch (e) { }
         } else if (storedConfig && (!shop || storedConfig.shop === shop)) {
-            // We have a stored session and it matches the current shop (or shop is implicit)
+            console.log('Using session from storage');
             setConfig(storedConfig);
         } else if (shop) {
-            // No valid session found in URL or storage, need to re-authenticate
+            console.log('No session found, redirecting to auth...');
             const authUrl = `/auth?shop=${shop}`;
             window.location.href = authUrl;
+        } else {
+            console.log('No shop or session found. Waiting...');
         }
     }, []);
 

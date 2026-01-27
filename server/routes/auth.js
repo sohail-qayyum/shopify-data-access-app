@@ -82,8 +82,11 @@ router.get('/auth/callback', async (req, res) => {
             });
         }
 
-        // Redirect to app dashboard with session ID
-        const redirectUrl = `/?shop=${session.shop}&session=${storedSession.id}`;
+        // Get host from query
+        const { host } = req.query;
+
+        // Redirect to app dashboard with session ID and host
+        const redirectUrl = `/?shop=${session.shop}&host=${host}&session=${storedSession.id}`;
         res.redirect(redirectUrl);
     } catch (error) {
         console.error('Auth callback error:', error);
