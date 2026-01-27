@@ -40,8 +40,13 @@ function App() {
             setConfig(storedConfig);
         } else if (shop) {
             console.log('No session found, redirecting to auth...');
-            const authUrl = `/auth?shop=${shop}`;
-            window.location.href = authUrl;
+            // Use absolute URL and top-level redirect to escape the iframe
+            const authUrl = `${window.location.origin}/auth?shop=${shop}`;
+            if (window.top !== window.self) {
+                window.top.location.href = authUrl;
+            } else {
+                window.location.href = authUrl;
+            }
         } else {
             console.log('No shop or session found. Waiting...');
         }

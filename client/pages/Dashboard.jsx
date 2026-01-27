@@ -55,10 +55,15 @@ function Dashboard({ config }) {
 
             // If we get a 401, the session is invalid. Re-authenticate.
             if (err.response?.status === 401) {
-                console.error('Session invalid (401). Triggering re-auth...');
+                console.error('Session invalid (401). Triggering top-level re-auth...');
                 sessionStorage.removeItem('shopify_config');
-                // Redirect to auth using the current shop
-                window.location.href = `/auth?shop=${config.shop}`;
+                // Use absolute URL and top-level redirect to escape the iframe
+                const authUrl = `${window.location.origin}/auth?shop=${config.shop}`;
+                if (window.top !== window.self) {
+                    window.top.location.href = authUrl;
+                } else {
+                    window.location.href = authUrl;
+                }
                 return;
             }
 
