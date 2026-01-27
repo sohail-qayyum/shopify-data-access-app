@@ -14,17 +14,27 @@ function App() {
         const session = params.get('session');
 
         // Check if we already have a valid session in storage
-        const stored = sessionStorage.getItem('shopify_config');
         let storedConfig = null;
-        if (stored) {
-            storedConfig = JSON.parse(stored);
+        try {
+            const stored = sessionStorage.getItem('shopify_config');
+            if (stored) {
+                storedConfig = JSON.parse(stored);
+            }
+        } catch (e) {
+            console.warn('Session storage is blocked:', e);
         }
 
         if (shop && session) {
             // New session from URL (e.g., after OAuth or fresh load)
             const newConfig = { shop, session };
             setConfig(newConfig);
-            sessionStorage.setItem('shopify_config', JSON.stringify(newConfig));
+
+            // Try to store for persistence, but don't fail if it blocks
+            try {
+                sessionStorage.setItem('shopify_config', JSON.stringify(newConfig));
+            } catch (e) {
+                console.warn('Failed to save session to storage:', e);
+            }
         } else if (storedConfig && (!shop || storedConfig.shop === shop)) {
             // We have a stored session and it matches the current shop (or shop is implicit)
             setConfig(storedConfig);
