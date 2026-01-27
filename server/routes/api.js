@@ -12,10 +12,40 @@ const prisma = new PrismaClient();
  */
 router.get('/scopes', verifyShopifySession, async (req, res) => {
     try {
-        const scopes = await prisma.dataScope.findMany({
+        console.log(`Fetching scopes for shop: ${req.shopifySession.shop}`);
+
+        let scopes = await prisma.dataScope.findMany({
             where: { sessionId: req.shopifySession.id }
         });
 
+        // Self-healing: If no scopes exist, initialize them
+        if (scopes.length === 0) {
+            console.log(`No scopes found for session ${req.shopifySession.id}. Initializing default scopes...`);
+            const scopeNames = ['orders', 'customers', 'inventory'];
+            for (const scopeName of scopeNames) {
+                await prisma.dataScope.upsert({
+                    where: {
+                        sessionId_scopeName: {
+                            sessionId: req.shopifySession.id,
+                            scopeName: scopeName
+                        }
+                    },
+                    update: {},
+                    create: {
+                        sessionId: req.shopifySession.id,
+                        scopeName: scopeName,
+                        enabled: false
+                    }
+                });
+            }
+
+            // Fetch again after initialization
+            scopes = await prisma.dataScope.findMany({
+                where: { sessionId: req.shopifySession.id }
+            });
+        }
+
+        console.log(`Returning ${scopes.length} scopes`);
         res.json({ scopes });
     } catch (error) {
         console.error('Error fetching scopes:', error);
