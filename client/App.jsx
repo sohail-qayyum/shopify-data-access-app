@@ -13,21 +13,25 @@ function App() {
         const shop = params.get('shop');
         const session = params.get('session');
 
+        // Check if we already have a valid session in storage
+        const stored = sessionStorage.getItem('shopify_config');
+        let storedConfig = null;
+        if (stored) {
+            storedConfig = JSON.parse(stored);
+        }
+
         if (shop && session) {
-            setConfig({ shop, session });
-            // Store in sessionStorage for persistence
-            sessionStorage.setItem('shopify_config', JSON.stringify({ shop, session }));
+            // New session from URL (e.g., after OAuth or fresh load)
+            const newConfig = { shop, session };
+            setConfig(newConfig);
+            sessionStorage.setItem('shopify_config', JSON.stringify(newConfig));
+        } else if (storedConfig && (!shop || storedConfig.shop === shop)) {
+            // We have a stored session and it matches the current shop (or shop is implicit)
+            setConfig(storedConfig);
         } else if (shop) {
-            // If we have a shop but no session, we need to re-authenticate
-            // Redirect to our auth bridge which will then redirect back with a session
+            // No valid session found in URL or storage, need to re-authenticate
             const authUrl = `/auth?shop=${shop}`;
             window.location.href = authUrl;
-        } else {
-            // Try to load from sessionStorage
-            const stored = sessionStorage.getItem('shopify_config');
-            if (stored) {
-                setConfig(JSON.parse(stored));
-            }
         }
     }, []);
 
