@@ -25,7 +25,7 @@ app.use(helmet({
     frameguard: false, // Allow iframe embedding from Shopify
 }));
 
-// CORS configuration - Allow Shopify domains
+// CORS configuration - Allow Shopify domains and custom headers
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests from Shopify admin and your app URL
@@ -48,6 +48,7 @@ app.use(cors({
 
         callback(null, isAllowed);
     },
+    allowedHeaders: ['Content-Type', 'X-Shopify-Session-Id', 'ngrok-skip-browser-warning'],
     credentials: true
 }));
 

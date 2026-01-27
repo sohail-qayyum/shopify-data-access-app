@@ -17,6 +17,11 @@ function App() {
             setConfig({ shop, session });
             // Store in sessionStorage for persistence
             sessionStorage.setItem('shopify_config', JSON.stringify({ shop, session }));
+        } else if (shop) {
+            // If we have a shop but no session, we need to re-authenticate
+            // Redirect to our auth bridge which will then redirect back with a session
+            const authUrl = `/auth?shop=${shop}`;
+            window.location.href = authUrl;
         } else {
             // Try to load from sessionStorage
             const stored = sessionStorage.getItem('shopify_config');

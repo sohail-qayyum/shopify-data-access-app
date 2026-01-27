@@ -52,6 +52,14 @@ function Dashboard({ config }) {
             setEndpoints(endpointsRes.data.endpoints);
         } catch (err) {
             console.error('Error fetching data:', err);
+
+            // If we get a 401, the session is invalid. Clear and reload.
+            if (err.response?.status === 401) {
+                sessionStorage.removeItem('shopify_config');
+                window.location.reload();
+                return;
+            }
+
             setError('Failed to load dashboard data. Please refresh the page.');
         } finally {
             setLoading(false);
