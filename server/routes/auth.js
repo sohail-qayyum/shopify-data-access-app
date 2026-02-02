@@ -82,12 +82,63 @@ router.get('/auth/callback', async (req, res) => {
             });
         }
 
-        // Get host from query
-        const { host } = req.query;
+        // Get host and embedded from query
+        const { host, embedded } = req.query;
 
-        // Redirect to app dashboard with session ID and host
-        const redirectUrl = `/?shop=${session.shop}&host=${host}&session=${storedSession.id}`;
-        res.redirect(redirectUrl);
+        console.log('Auth callback - Shop:', session.shop, 'Host:', host, 'Embedded:', embedded);
+
+        // Build redirect URL with all necessary parameters
+        const params = new URLSearchParams({
+            shop: session.shop,
+            session: storedSession.id
+        });
+
+        if (host) params.append('host', host);
+        if (embedded) params.append('embedded', embedded);
+
+        const redirectUrl = `/?${params.toString()}`;
+
+        console.log('Redirecting to:', redirectUrl);
+
+        // For embedded apps, we need to use Shopify's redirect method
+        if (embedded === '1' || embedded === 'true') {
+            // Return HTML that uses Shopify App Bridge to redirect
+            res.send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            if (window.top === window.self) {
+                                // Not in an iframe, redirect normally
+                                window.location.href = "${redirectUrl}";
+                            } else {
+                                // In an iframe, use App Bridge
+                                var AppBridge = window['app-bridge'];
+                                var createApp = AppBridge.default;
+                                var Redirect = AppBridge.actions.Redirect;
+                                
+                                var app = createApp({
+                                    apiKey: "${process.env.SHOPIFY_API_KEY}",
+                                    host: "${host}"
+                                });
+                                
+                                var redirect = Redirect.create(app);
+                                redirect.dispatch(Redirect.Action.APP, "${redirectUrl}");
+                            }
+                        });
+                    </script>
+                </head>
+                <body>
+                    <p>Redirecting...</p>
+                </body>
+                </html>
+            `);
+        } else {
+            // Non-embedded app, use regular redirect
+            res.redirect(redirectUrl);
+        }
     } catch (error) {
         console.error('Auth callback error:', error);
         res.status(500).json({ error: 'Authentication failed' });
