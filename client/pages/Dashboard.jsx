@@ -5,17 +5,19 @@ import {
     Card,
     Text,
     BlockStack,
-    InlineStack,
-    Button,
     Banner,
     Spinner
 } from '@shopify/polaris';
+import { useAppBridge } from '@shopify/app-bridge-react';
+import { authenticatedFetch } from '@shopify/app-bridge-utils';
 import ScopeSelector from '../components/ScopeSelector';
 import ApiEndpoint from '../components/ApiEndpoint';
 import ApiKeyManager from '../components/ApiKeyManager';
-import axios from 'axios';
 
-function Dashboard({ config }) {
+function Dashboard({ shop }) {
+    const app = useAppBridge();
+    const fetch = authenticatedFetch(app);
+
     const [scopes, setScopes] = useState([]);
     const [apiKeys, setApiKeys] = useState([]);
     const [endpoints, setEndpoints] = useState({});
@@ -23,13 +25,7 @@ function Dashboard({ config }) {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
 
-    // Configure axios to include session ID and skip ngrok browser warning
-    const axiosConfig = {
-        headers: {
-            'X-Shopify-Session-Id': config.session,
-            'ngrok-skip-browser-warning': 'true'
-        }
-    };
+    console.log('Dashboard initialized for shop:', shop);
 
     // Fetch initial data
     useEffect(() => {
@@ -41,32 +37,20 @@ function Dashboard({ config }) {
             setLoading(true);
             setError(null);
 
+            console.log('Fetching dashboard data...');
+
             const [scopesRes, keysRes, endpointsRes] = await Promise.all([
-                axios.get('/api/scopes', axiosConfig),
-                axios.get('/api/keys', axiosConfig),
-                axios.get('/api/endpoint', axiosConfig)
+                fetch('/api/scopes').then(r => r.json()),
+                fetch('/api/keys').then(r => r.json()),
+                fetch('/api/endpoint').then(r => r.json())
             ]);
 
-            setScopes(scopesRes.data.scopes);
-            setApiKeys(keysRes.data.keys);
-            setEndpoints(endpointsRes.data.endpoints);
+            console.log('Data fetched successfully');
+            setScopes(scopesRes.scopes);
+            setApiKeys(keysRes.keys);
+            setEndpoints(endpointsRes.endpoints);
         } catch (err) {
             console.error('Error fetching data:', err);
-
-            // If we get a 401, the session is invalid. Re-authenticate.
-            if (err.response?.status === 401) {
-                console.error('Session invalid (401). Triggering top-level re-auth...');
-                sessionStorage.removeItem('shopify_config');
-                // Use absolute URL and top-level redirect to escape the iframe
-                const authUrl = `${window.location.origin}/auth?shop=${config.shop}`;
-                if (window.top !== window.self) {
-                    window.top.location.href = authUrl;
-                } else {
-                    window.location.href = authUrl;
-                }
-                return;
-            }
-
             setError('Failed to load dashboard data. Please refresh the page.');
         } finally {
             setLoading(false);
@@ -76,41 +60,48 @@ function Dashboard({ config }) {
     const handleScopeChange = useCallback(async (updatedScopes) => {
         try {
             setError(null);
-            const response = await axios.put('/api/scopes',
-                { scopes: updatedScopes },
-                axiosConfig
-            );
-            setScopes(response.data.scopes);
+            const response = await fetch('/api/scopes', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scopes: updatedScopes })
+            }).then(r => r.json());
+
+            setScopes(response.scopes);
             setSuccessMessage('Data scope settings saved successfully!');
             setTimeout(() => setSuccessMessage(null), 3000);
         } catch (err) {
             console.error('Error updating scopes:', err);
             setError('Failed to update data scopes. Please try again.');
         }
-    }, [config]);
+    }, [fetch]);
 
     const handleGenerateKey = useCallback(async (keyName) => {
         try {
             setError(null);
-            const response = await axios.post('/api/keys',
-                { name: keyName },
-                axiosConfig
-            );
-            setApiKeys([...apiKeys, response.data.key]);
+            const response = await fetch('/api/keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: keyName })
+            }).then(r => r.json());
+
+            setApiKeys([...apiKeys, response.key]);
             setSuccessMessage('API key generated successfully!');
             setTimeout(() => setSuccessMessage(null), 3000);
-            return response.data.key;
+            return response.key;
         } catch (err) {
             console.error('Error generating API key:', err);
             setError('Failed to generate API key. Please try again.');
             throw err;
         }
-    }, [apiKeys, config]);
+    }, [apiKeys, fetch]);
 
     const handleRevokeKey = useCallback(async (keyId) => {
         try {
             setError(null);
-            await axios.delete(`/api/keys/${keyId}`, axiosConfig);
+            await fetch(`/api/keys/${keyId}`, {
+                method: 'DELETE'
+            });
+
             setApiKeys(apiKeys.map(key =>
                 key.id === keyId ? { ...key, isActive: false } : key
             ));
@@ -120,7 +111,7 @@ function Dashboard({ config }) {
             console.error('Error revoking API key:', err);
             setError('Failed to revoke API key. Please try again.');
         }
-    }, [apiKeys, config]);
+    }, [apiKeys, fetch]);
 
     if (loading) {
         return (
@@ -144,7 +135,7 @@ function Dashboard({ config }) {
     return (
         <Page
             title="Data Access App"
-            subtitle={`Connected to ${config.shop}`}
+            subtitle={`Connected to ${shop}`}
         >
             <BlockStack gap="500">
                 {error && (

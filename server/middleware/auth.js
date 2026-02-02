@@ -5,13 +5,56 @@ const prisma = new PrismaClient();
 
 /**
  * Middleware to verify Shopify session for admin dashboard routes
+ * Supports both session tokens (App Bridge) and session IDs (legacy)
  */
 export const verifyShopifySession = async (req, res, next) => {
     try {
+        // Try session token first (App Bridge approach)
+        const authHeader = req.headers.authorization;
+
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.replace('Bearer ', '');
+
+            try {
+                // Decode the session token
+                const sessionToken = await shopify.session.decodeSessionToken(token);
+
+                if (sessionToken && sessionToken.dest) {
+                    // Extract shop from the session token
+                    const shopUrl = new URL(sessionToken.dest);
+                    const shop = shopUrl.hostname;
+
+                    console.log('Session token verified for shop:', shop);
+
+                    // Find or create session in database
+                    let session = await prisma.session.findUnique({
+                        where: { shop: shop }
+                    });
+
+                    if (!session) {
+                        console.log('No session found for shop, creating placeholder...');
+                        // This shouldn't happen in normal flow, but handle gracefully
+                        return res.status(401).json({
+                            error: 'Session not found. Please reinstall the app.'
+                        });
+                    }
+
+                    // Attach session to request
+                    req.shopifySession = session;
+                    req.shop = shop;
+                    return next();
+                }
+            } catch (tokenError) {
+                console.error('Session token verification failed:', tokenError);
+                // Fall through to try session ID method
+            }
+        }
+
+        // Fallback to session ID method (legacy)
         const sessionId = req.headers['x-shopify-session-id'];
 
         if (!sessionId) {
-            return res.status(401).json({ error: 'No session ID provided' });
+            return res.status(401).json({ error: 'No session ID or token provided' });
         }
 
         const session = await prisma.session.findUnique({
@@ -24,6 +67,7 @@ export const verifyShopifySession = async (req, res, next) => {
 
         // Attach session to request
         req.shopifySession = session;
+        req.shop = session.shop;
         next();
     } catch (error) {
         console.error('Session verification error:', error);
